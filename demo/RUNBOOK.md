@@ -69,12 +69,14 @@ Show `scripts/create_routines.py`.
 Nobody wants to wait until 7am, so fire it now:
 
 ```powershell
-python scripts\dispatch.py
+python scripts\dispatch.py --show-output
 ```
 
 > "Same routine, same execution path, same run history — just triggered on demand."
 
 While it runs, narrate what the agent is doing: pulling overnight out-of-stock alerts, cross-checking promo compliance, and opening replenishment tasks only where the rules say to.
+
+Note on what you're seeing: the routine run record is the proof the automation fired. Foundry runs the agent under **its own identity**, so the response from that run isn't readable by you as the caller in preview — `--show-output` replays the same input against the same agent so the room sees the actual brief. If asked, say exactly that; it's a preview gap, not a design constraint.
 
 When the brief prints, land the point:
 
@@ -101,7 +103,7 @@ Show `scripts/create_prompt_agent.py`:
 Then:
 
 ```powershell
-python scripts\dispatch.py --prompt
+python scripts\dispatch.py --prompt --show-output
 ```
 
 > "Identical routine structure. The only difference is the agent name in the action."

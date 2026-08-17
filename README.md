@@ -62,7 +62,7 @@ scripts/
   deploy_hosted_agent.py    ACR build -> AcrPull grant -> register hosted agent
   create_prompt_agent.py    create the PepGPT prompt agent
   create_routines.py        create both routines
-  dispatch.py               fire a routine now, wait for the run to finish
+  dispatch.py               fire a routine now, wait, optionally show output
   invoke_agent.py           call an agent directly and print its output
   show_runs.py              routines and their run history
   cleanup.py                delete everything
@@ -123,10 +123,10 @@ python scripts\create_prompt_agent.py
 python scripts\create_routines.py
 
 # 4. Fire them now instead of waiting for 07:00 ET
-python scripts\dispatch.py            # -> hosted LangGraph agent
-python scripts\dispatch.py --prompt   # -> prompt agent
+python scripts\dispatch.py --show-output            # -> hosted LangGraph agent
+python scripts\dispatch.py --prompt --show-output   # -> prompt agent
 
-# 5. Show what the agents actually produce (direct invocation)
+# 5. Or invoke an agent directly, with no routine involved
 python scripts\invoke_agent.py            # -> hosted LangGraph agent
 python scripts\invoke_agent.py --prompt   # -> prompt agent
 
@@ -134,7 +134,9 @@ python scripts\invoke_agent.py --prompt   # -> prompt agent
 python scripts\show_runs.py
 ```
 
-> **Preview note.** A routine run records the `response_id` of the agent invocation, but that response belongs to the agent's own session and is **not readable by the caller** (`session_not_accessible` / `404`). So `dispatch.py` proves the automation fired and `invoke_agent.py` shows the agent's output. Use them together in the demo.
+> **Preview note — reading routine output.** A routine run records the `response_id` of the agent invocation, but that response is **not readable by the caller**. The agent runs under its own identity and its session is scoped to that identity, so `responses.retrieve(...)` returns `session_not_accessible` / `404`. Attaching a caller-created conversation to the action doesn't help either — the agent can't see it and the run fails with `conversation_not_found`.
+>
+> So the run record proves the automation fired, and `--show-output` replays the same input directly against the same agent to show what that run produced.
 
 Tear down with `python scripts\cleanup.py`.
 

@@ -78,6 +78,14 @@ def invoke_prompt(client, agent_name: str, text: str):
     )
 
 
+def invoke_agent(client, agent_name: str, text: str):
+    """Invoke an agent by name, routing on its kind. Returns the Responses object."""
+    kind = agent_kind(client, agent_name)
+    if kind == "hosted":
+        return invoke_hosted(agent_name, text)
+    return invoke_prompt(client, agent_name, text)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Invoke a Foundry agent directly.")
     parser.add_argument("--prompt", action="store_true", help="Use the prompt agent.")

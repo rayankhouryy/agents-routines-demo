@@ -23,6 +23,7 @@ from common import (
     banner,
     get_client,
 )
+from invoke_agent import invoke_agent
 
 TERMINAL_PHASES = {"completed", "succeeded", "failed", "cancelled", "canceled", "skipped"}
 
@@ -59,6 +60,13 @@ def main() -> None:
     parser.add_argument("--routine", help="Dispatch a specific routine by name.")
     parser.add_argument("--input", help="Override the input text for this dispatch.")
     parser.add_argument("--timeout", type=int, default=300, help="Seconds to wait for completion.")
+    parser.add_argument(
+        "--show-output",
+        action="store_true",
+        help="After the run completes, replay the same input directly against the "
+             "same agent to show the output (routine run output is not caller-readable "
+             "in preview).",
+    )
     args = parser.parse_args()
 
     routine_name = args.routine or (PROMPT_ROUTINE_NAME if args.prompt else HOSTED_ROUTINE_NAME)
@@ -107,22 +115,39 @@ def main() -> None:
         if run.response_id:
             banner("Agent output")
             # In preview, the response produced by a routine run belongs to the
-            # agent's own session and is not retrievable by the caller. The run
-            # record above is the proof the automation fired; use
-            # scripts/invoke_agent.py to show what the agent actually produces.
+            # agent's own session and is not retrievable by the caller - the
+            # agent runs under its own identity, and sessions are scoped to that
+            # identity. (Attaching a caller-created `conversation` to the action
+            # does not help either: the agent cannot see it and the run fails
+            # with `conversation_not_found`.)
+            #
+            # So the run record above is the proof the automation fired, and
+            # --show-output replays the same input directly to the same agent to
+            # show what that run produced.
             try:
                 openai_client = client.get_openai_client()
                 response = openai_client.responses.retrieve(run.response_id)
                 print(response.output_text)
+                return
             except Exception:  # noqa: BLE001
                 print(
                     f"  Response {run.response_id} was produced inside the agent's own\n"
                     f"  session and is not readable by the caller in preview.\n\n"
-                    f"  The run above (phase={_phase(run)}) is the proof the routine fired.\n"
-                    f"  To show the agent's actual output, run:\n\n"
-                    f"      python scripts\\invoke_agent.py"
-                    + ("  --prompt" if args.prompt else "")
+                    f"  The run above (phase={_phase(run)}) is the proof the routine fired."
                 )
+
+        if args.show_output:
+            agent_name = routine.action.agent_name
+            banner(f"Replaying the same input directly against '{agent_name}'")
+            print("  (identical input to what the routine just sent)\n")
+            response = invoke_agent(client, agent_name, payload["input"])
+            print(response.output_text)
+        elif run.response_id:
+            print(
+                f"\n  To show the agent's actual output, add --show-output, or run:\n\n"
+                f"      python scripts\\invoke_agent.py"
+                + ("  --prompt" if args.prompt else "")
+            )
 
 
 if __name__ == "__main__":
