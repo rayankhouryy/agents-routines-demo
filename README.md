@@ -66,6 +66,9 @@ scripts/
   invoke_agent.py           call an agent directly and print its output
   show_runs.py              routines and their run history
   cleanup.py                delete everything
+webapp/                visual demo console (FastAPI + one HTML page)
+  app.py               live agent/routine state, dispatch, run history
+  static/index.html    the UI - no build step
 demo/RUNBOOK.md        run-of-show for the customer call
 ```
 
@@ -139,6 +142,25 @@ python scripts\show_runs.py
 > So the run record proves the automation fired, and `--show-output` replays the same input directly against the same agent to show what that run produced.
 
 Tear down with `python scripts\cleanup.py`.
+
+---
+
+## Visual demo console
+
+For a live, on-screen version of the whole story:
+
+```powershell
+python webapp\app.py     # http://127.0.0.1:8000
+```
+
+The page shows both agents side by side — the **hosted** container (with its live version, image, CPU/memory) and the **prompt** agent — each with the routine that drives it and its trigger. Two buttons per card:
+
+- **Run routine now** — dispatches the routine, streams the run phases as Foundry reports them (`queued → completed`), then shows the agent's output.
+- **Invoke agent directly** — calls the agent with no routine involved, for comparison.
+
+Underneath each card is the routine's run history straight from Foundry, so the audit trail is visible on the same screen.
+
+Everything on the page is live data from the project — there is no mocked state.
 
 ---
 

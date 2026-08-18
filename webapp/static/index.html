@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PepsiCo × Microsoft Foundry — Hosted Agents + Routines</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --panel: #131c2f;
+    --panel-2: #182338;
+    --line: #24314d;
+    --text: #e8eefc;
+    --muted: #93a3c4;
+    --blue: #2e6ff2;
+    --green: #2ecc71;
+    --amber: #f5a623;
+    --red: #ff5f56;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  header {
+    padding: 22px 32px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    background: linear-gradient(180deg, #0f1830, #0b1220);
+  }
+  header h1 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: .2px; }
+  header .sub { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  header .env { text-align: right; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  main { padding: 24px 32px 60px; max-width: 1500px; margin: 0 auto; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 1150px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .card > header {
+    display: block; padding: 16px 20px; background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .card h2 { margin: 0; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  .card .subtitle { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .body { padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  .pill {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px;
+    padding: 3px 9px; border-radius: 999px; font-weight: 700;
+  }
+  .pill.hosted { background: rgba(46,111,242,.18); color: #7fa6ff; border: 1px solid rgba(46,111,242,.45); }
+  .pill.prompt { background: rgba(245,166,35,.15); color: #f5c274; border: 1px solid rgba(245,166,35,.42); }
+  .pill.on     { background: rgba(46,204,113,.14); color: #6fe3a3; border: 1px solid rgba(46,204,113,.4); }
+
+  .kv { display: grid; grid-template-columns: 118px 1fr; gap: 6px 14px; font-size: 13px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-family: var(--mono); font-size: 12px; word-break: break-all; }
+
+  .section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.1px;
+    color: var(--muted); font-weight: 700; margin-bottom: 8px;
+  }
+  .routine {
+    background: #0f1729; border: 1px solid var(--line);
+    border-radius: 9px; padding: 14px 16px;
+  }
+  .routine .name { font-weight: 650; font-size: 14px; }
+  .routine .desc { color: var(--muted); font-size: 12.5px; margin: 5px 0 10px; }
+  .trigger {
+    font-family: var(--mono); font-size: 12px; color: #9fd8ff;
+    background: rgba(46,111,242,.10); border: 1px solid rgba(46,111,242,.28);
+    border-radius: 6px; padding: 5px 9px; display: inline-block;
+  }
+  .arrow { color: var(--muted); font-family: var(--mono); font-size: 12px; margin-top: 9px; }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    border-radius: 8px; padding: 9px 16px; border: 1px solid transparent;
+    transition: filter .15s ease, opacity .15s ease;
+  }
+  button.primary { background: var(--blue); color: #fff; }
+  button.ghost { background: transparent; color: var(--text); border-color: var(--line); }
+  button:hover:not(:disabled) { filter: brightness(1.12); }
+  button:disabled { opacity: .5; cursor: progress; }
+
+  .log {
+    background: #080e1b; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; font-family: var(--mono); font-size: 12px;
+    max-height: 190px; overflow-y: auto;
+  }
+  .log .row { display: flex; gap: 10px; padding: 2px 0; }
+  .log .t { color: #55658a; flex: none; }
+  .log .ok { color: #6fe3a3; }
+  .log .error { color: #ff8b84; }
+  .log .info { color: #c6d3ee; }
+
+  .phase-track { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .phase {
+    font-family: var(--mono); font-size: 11.5px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted);
+  }
+  .phase.active { border-color: var(--blue); color: #9fc2ff; background: rgba(46,111,242,.12); }
+  .phase.done { border-color: rgba(46,204,113,.5); color: #6fe3a3; background: rgba(46,204,113,.1); }
+  .phase.failed { border-color: rgba(255,95,86,.6); color: #ff8b84; background: rgba(255,95,86,.12); }
+
+  .output {
+    background: #080e1b; border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px 18px; font-family: var(--mono); font-size: 12.5px;
+    white-space: pre-wrap; line-height: 1.6; max-height: 460px; overflow-y: auto;
+  }
+  .output:empty::before { content: "No output yet — run the routine."; color: #55658a; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: var(--mono); }
+  th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 6px 8px; border-bottom: 1px solid #1a2438; color: #c6d3ee; }
+  td .ph { font-weight: 700; }
+  td .ph.completed { color: #6fe3a3; }
+  td .ph.failed { color: #ff8b84; }
+
+  .note {
+    font-size: 12px; color: var(--muted); border-left: 3px solid var(--line);
+    padding: 8px 0 8px 12px; line-height: 1.5;
+  }
+  .spinner {
+    width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.25);
+    border-top-color: #fff; border-radius: 50%; display: inline-block;
+    animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 7px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>PepsiCo × Microsoft Foundry — Hosted Agents + Routines</h1>
+    <div class="sub">One automation surface. Two agent runtimes. No scheduler to operate.</div>
+  </div>
+  <div class="env" id="env">connecting…</div>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<template id="card-tpl">
+  <section class="card">
+    <header>
+      <h2><span class="title"></span><span class="pill kind"></span></h2>
+      <div class="subtitle"></div>
+    </header>
+    <div class="body">
+      <div>
+        <div class="section-label">Agent</div>
+        <dl class="kv agent-kv"></dl>
+      </div>
+
+      <div>
+        <div class="section-label">Routine</div>
+        <div class="routine">
+          <div class="name"></div>
+          <div class="desc"></div>
+          <div class="trigger"></div>
+          <div class="arrow"></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="primary run">Run routine now</button>
+        <button class="ghost invoke">Invoke agent directly</button>
+      </div>
+
+      <div class="phase-track">
+        <span class="phase" data-p="queued">queued</span>
+        <span class="phase" data-p="running">running</span>
+        <span class="phase" data-p="completed">completed</span>
+      </div>
+
+      <div>
+        <div class="section-label">Live activity</div>
+        <div class="log"></div>
+      </div>
+
+      <div>
+        <div class="section-label">Agent output</div>
+        <div class="output"></div>
+      </div>
+
+      <div>
+        <div class="section-label">Run history (from Foundry)</div>
+        <table class="runs">
+          <thead><tr><th>Run</th><th>Phase</th><th>Source</th><th>Started (UTC)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</template>
+
+<script>
+const grid = document.getElementById("grid");
+const cards = {};
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+function renderRuns(tbody, runs) {
+  tbody.innerHTML = (runs || []).map(r => `
+    <tr>
+      <td title="${esc(r.id)}">${esc(r.id.slice(0, 8))}</td>
+      <td><span class="ph ${esc(r.phase)}">${esc(r.phase)}</span></td>
+      <td>${esc(r.source)}</td>
+      <td>${esc((r.started_at || "").replace("T", " ").replace("+00:00", ""))}</td>
+    </tr>`).join("") || `<tr><td colspan="4" style="color:#55658a">No runs yet.</td></tr>`;
+}
+
+function buildCard(pair) {
+  const node = document.getElementById("card-tpl").content.cloneNode(true);
+  const el = node.querySelector(".card");
+  const a = pair.agent, r = pair.routine;
+
+  el.querySelector(".title").textContent = pair.title;
+  const kind = el.querySelector(".kind");
+  kind.textContent = a.kind || "unknown";
+  kind.classList.add(a.kind === "hosted" ? "hosted" : "prompt");
+  el.querySelector(".subtitle").textContent = pair.subtitle;
+
+  const kv = el.querySelector(".agent-kv");
+  const rows = [["name", a.name], ["version", a.version], ["model", a.model]];
+  if (a.image) rows.push(["image", a.image]);
+  if (a.cpu) rows.push(["resources", `${a.cpu} vCPU / ${a.memory}`]);
+  if (a.error) rows.push(["error", a.error]);
+  kv.innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+
+  el.querySelector(".routine .name").innerHTML =
+    `${esc(r.name)} ${r.enabled ? '<span class="pill on">enabled</span>' : ""}`;
+  el.querySelector(".routine .desc").textContent = r.description || "";
+  const t = (r.triggers || [])[0] || {};
+  el.querySelector(".trigger").textContent =
+    `trigger: ${t.type || "?"}  ${t.cron || t.at || ""}  ${t.time_zone || ""}`.trim();
+  el.querySelector(".arrow").textContent = `action: ${r.action_type} → ${r.agent_name}`;
+
+  renderRuns(el.querySelector(".runs tbody"), pair.runs);
+
+  el.querySelector(".run").addEventListener("click", e => start(pair.id, "dispatch", e.target));
+  el.querySelector(".invoke").addEventListener("click", e => start(pair.id, "invoke", e.target));
+
+  cards[pair.id] = el;
+  grid.appendChild(el);
+}
+
+function setPhase(el, phase) {
+  el.querySelectorAll(".phase").forEach(p => {
+    p.classList.remove("active", "done", "failed");
+    const order = ["queued", "running", "completed"];
+    const i = order.indexOf(p.dataset.p), j = order.indexOf(phase);
+    if (phase === "failed" && p.dataset.p === "completed") p.classList.add("failed");
+    else if (j >= 0 && i < j) p.classList.add("done");
+    else if (i === j) p.classList.add(phase === "completed" ? "done" : "active");
+  });
+}
+
+async function start(pairId, kind, button) {
+  const el = cards[pairId];
+  const buttons = el.querySelectorAll("button");
+  buttons.forEach(b => (b.disabled = true));
+  const label = button.textContent;
+  button.innerHTML = `<span class="spinner"></span>Running…`;
+  el.querySelector(".log").innerHTML = "";
+  el.querySelector(".output").textContent = "";
+  setPhase(el, kind === "dispatch" ? "queued" : "running");
+
+  const res = await fetch(`/api/${kind}/${pairId}`, { method: "POST" });
+  const { job_id } = await res.json();
+
+  const timer = setInterval(async () => {
+    const job = await (await fetch(`/api/job/${job_id}`)).json();
+
+    el.querySelector(".log").innerHTML = job.events.map(e =>
+      `<div class="row"><span class="t">${esc(e.time)}</span><span class="${esc(e.kind)}">${esc(e.message)}</span></div>`
+    ).join("");
+    const log = el.querySelector(".log");
+    log.scrollTop = log.scrollHeight;
+
+    if (job.run) setPhase(el, job.run.phase);
+    if (job.output) el.querySelector(".output").textContent = job.output;
+
+    if (job.status !== "running") {
+      clearInterval(timer);
+      buttons.forEach(b => (b.disabled = false));
+      button.textContent = label;
+      if (job.status === "failed") setPhase(el, "failed");
+      refresh();
+    }
+  }, 1000);
+}
+
+async function refresh() {
+  const state = await (await fetch("/api/state")).json();
+  document.getElementById("env").innerHTML =
+    `${esc(state.project_endpoint)}<br>model: ${esc(state.model)}`;
+  if (!grid.children.length) state.pairs.forEach(buildCard);
+  else state.pairs.forEach(p => renderRuns(cards[p.id].querySelector(".runs tbody"), p.runs));
+}
+
+refresh();
+</script>
+</body>
+</html>

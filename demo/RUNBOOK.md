@@ -2,15 +2,27 @@
 
 Target: ~12 minutes. Three beats — hosted agents, routines, prompt agents — ending on "this is the same surface for all of it."
 
-Before the call:
+**Drive the demo from the Foundry portal.** It fires routines with **Test run** and shows the run output when you open a response ID — which the SDK can't do in preview. Keep the code in a second window for the "here's what created this" moments.
+
+## 10 minutes before the call
 
 ```powershell
 cd agents-routines-demo
 .\.venv\Scripts\Activate
-python scripts\show_runs.py      # confirm both routines exist and are enabled
+python scripts\show_runs.py      # both routines exist and are enabled
+python scripts\invoke_agent.py   # warms the hosted container so the live run is fast
 ```
 
-Have two terminals open and the Foundry portal on the project's **Agents** blade.
+Then, in the portal (https://ai.azure.com → project **project76a3**):
+
+1. Open **Routines** → `pepsico-daily-store-ops` → **Test run**, let it reach **Completed**, and click the **response ID** to confirm the run detail renders the output. Do this once beforehand — it's the only step you haven't personally clicked.
+2. Leave three tabs open: **Agents**, `pepsico-daily-store-ops`, `pepsico-weekly-exec-digest`.
+
+Optional backup, in case the portal is slow or a blade misbehaves:
+
+```powershell
+python webapp\app.py             # http://127.0.0.1:8000 — same story, local UI
+```
 
 ### Portal links (this deployment)
 
@@ -25,26 +37,26 @@ Have two terminals open and the Foundry portal on the project's **Agents** blade
 CLI equivalents if the portal is slow:
 
 ```powershell
-az cognitiveservices account show -n aiservices76a3 -g rayankhoury -o table
-az acr repository show-tags -n rayankhouryacr --repository pepsico/store-ops-agent -o table
 python scripts\show_runs.py
+python scripts\dispatch.py --show-output            # hosted
+python scripts\dispatch.py --prompt --show-output   # prompt
 ```
 
 ---
 
 ## Beat 0 — The problem (30s, no screen)
 
-> "You have a lot of recurring processes. Today automating one means someone builds a scheduler, hosts the agent somewhere, and wires up retries and logging. We want that to be a configuration, not a project."
+> "You have a lot of recurring processes. Today, automating one means someone builds a scheduler, hosts the agent somewhere, and wires up retries and logging. We want that to be a configuration, not a project."
 
 ---
 
 ## Beat 1 — Hosted Agents: Foundry as the runtime (4 min)
 
-Show `hosted_agent/main.py`.
+**Do:** open `hosted_agent/main.py` in your editor.
 
 > "This is an ordinary LangGraph agent — `create_agent` with three tools that hit the retail execution system. Nothing Foundry-specific in the agent logic."
 
-Scroll to the bottom:
+**Do:** scroll to the last line.
 
 ```python
 ResponsesHostServer(graph).run(port=port)
@@ -52,43 +64,37 @@ ResponsesHostServer(graph).run(port=port)
 
 > "That one line is the whole integration. It exposes the graph over the Responses protocol, and Foundry handles conversation state, streaming, and session lifecycle."
 
-Then show `scripts/deploy_hosted_agent.py`:
+**Do:** open `scripts/deploy_hosted_agent.py`.
 
-> "The container is built **in Azure** by ACR — nobody needs Docker on their laptop — and then registered as a hosted agent version. No cluster, no App Service, no scale rules. This is the runtime story for the LangGraph agents you want to move over."
+> "The container is built **in Azure** by ACR — nobody needs Docker on their laptop — then registered as a hosted agent version. No cluster, no App Service, no scale rules. This is the runtime story for the LangGraph agents you want to move over. `azd up` is the one-command version of the same thing."
 
-Show the agent in the portal, and mention: `azd up` is the one-command version of the same thing.
+**Do:** switch to the portal → **Agents** → click `pepsico-store-ops-agent`.
+
+> "Here it is running in the project — kind is *hosted*, version 2, and that's the exact container image out of our registry."
 
 ---
 
 ## Beat 2 — Routines: automation without orchestration code (5 min)
 
-Show `scripts/create_routines.py`.
+**Do:** portal → **Routines** → open `pepsico-daily-store-ops`.
 
-> "A Routine is one trigger plus one action. Here the trigger is a cron schedule — weekdays 7am Eastern — and the action invokes the hosted agent **by name**. That's the entire automation. Foundry owns the scheduler, the retries, and the run history."
+> "A Routine is one trigger plus one action. The trigger is a cron schedule — weekdays 7am Eastern — and the action invokes the hosted agent **by name**. That's the entire automation. Foundry owns the scheduler, the retries, and the run history."
 
-Nobody wants to wait until 7am, so fire it now:
+**Do:** show `scripts/create_routines.py` for two seconds so they see it's ~10 lines of config.
 
-```powershell
-python scripts\dispatch.py --show-output
-```
+**Do:** back in the portal, click **Test run**.
 
-> "Same routine, same execution path, same run history — just triggered on demand."
+> "Nobody wants to wait until 7am, so we'll fire it now — same routine, same execution path, same run history."
 
-While it runs, narrate what the agent is doing: pulling overnight out-of-stock alerts, cross-checking promo compliance, and opening replenishment tasks only where the rules say to.
+While it moves **Queued → Completed**, narrate: pulling overnight out-of-stock alerts, cross-checking promo compliance, opening replenishment tasks only where the rules say to.
 
-Note on what you're seeing: the routine run record is the proof the automation fired. Foundry runs the agent under **its own identity**, so the response from that run isn't readable by you as the caller in preview — `--show-output` replays the same input against the same agent so the room sees the actual brief. If asked, say exactly that; it's a preview gap, not a design constraint.
-
-When the brief prints, land the point:
+**Do:** click the **response ID** on the new row to open the run and show the brief.
 
 > "Nobody wrote orchestration code. The scheduling, the retry policy, and the audit trail are the platform's job."
 
-Then show the receipts:
+**Do:** scroll the runs table.
 
-```powershell
-python scripts\show_runs.py
-```
-
-> "Every run is recorded — trigger, phase, timing, and the response id, so it links straight to the trace."
+> "Every run is recorded — when it triggered, how long it took, and its state — so this is auditable from day one."
 
 ---
 
@@ -96,19 +102,15 @@ python scripts\show_runs.py
 
 This is the beat that matters most, because it covers what PepsiCo runs today.
 
-Show `scripts/create_prompt_agent.py`:
+**Do:** portal → **Agents** → click `pepsico-exec-digest-agent`.
 
-> "This is a prompt agent — a model deployment plus instructions. No container, no runtime to operate. This is the shape you already have in PepGPT."
+> "This is a prompt agent — a model deployment plus instructions. No container, nothing to operate. This is the shape you already have in PepGPT."
 
-Then:
-
-```powershell
-python scripts\dispatch.py --prompt --show-output
-```
+**Do:** **Routines** → `pepsico-weekly-exec-digest` → **Test run** → open the response ID.
 
 > "Identical routine structure. The only difference is the agent name in the action."
 
-Put the two side by side:
+**Do:** show the two lines side by side.
 
 ```python
 action=InvokeAgentResponsesApiRoutineAction(agent_name="pepsico-store-ops-agent")     # hosted LangGraph
@@ -138,6 +140,19 @@ action=InvokeAgentResponsesApiRoutineAction(agent_name="pepsico-exec-digest-agen
 **Is this GA?** Routines is public preview. Requires `azure-ai-projects >= 2.4.0` and a supported region.
 
 **Where does our data go?** Everything runs inside the Foundry project in your subscription and region.
+
+**Can we see the output of a scheduled run?** In the portal, yes — open the response ID on the run. Programmatically it's a preview gap: the agent runs under its own identity and its session isn't readable by the caller, so `scripts/dispatch.py --show-output` replays the same input against the same agent to show what a run produces.
+
+---
+
+## If something goes wrong mid-demo
+
+| Symptom | Do this |
+|---|---|
+| **Test run** sits in Queued | Keep talking; it's ~5–20s. If >60s, switch to `python scripts\dispatch.py --show-output`. |
+| Hosted agent is slow on first call | It's a cold container — that's why you warm it beforehand. Say so; it's honest and expected. |
+| Portal blade won't load | `python webapp\app.py` → http://127.0.0.1:8000, same story with live data. |
+| A run shows **Failed** | Open it and read the error out loud, then re-run. Retries are part of the value story. |
 
 ---
 
